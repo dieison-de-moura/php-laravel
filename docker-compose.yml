@@ -1,0 +1,73 @@
+version: '3'
+
+services:
+    app:
+        build: .docker/php
+        container_name: php_laravel_app
+        volumes:
+            - .:/var/www
+            - ./.docker/php/custom.ini:/usr/local/etc/php/conf.d/custom.ini
+        networks:
+            - php_laravel_network
+        depends_on:
+            - db
+            - redis
+
+    nginx:
+        build: .docker/nginx
+        container_name: php_laravel_nginx
+        restart: always
+        tty: true
+        ports:
+            - "8001:80"
+        volumes:
+            - .:/var/www
+        networks:
+            php_laravel_network:
+                aliases:
+                    - php.laravel.project
+                    - db.laravel.project
+        depends_on:
+            - app
+
+    db:
+        build: ./.docker/mysql
+        container_name: php_laravel_db
+        restart: always
+        tty: true
+        ports:
+            - "3306:3306"
+        volumes:
+            - ./.docker/mysql/dbdata:/var/lib/mysql
+            - ./.docker/mysql:/docker-entrypoint-initdb.d
+        environment:
+            - MYSQL_DATABASE=php_laravel_project
+            - MYSQL_ROOT_PASSWORD=root
+        networks:
+            - php_laravel_network
+
+    phpmyadmin:
+        image: phpmyadmin:latest
+        container_name: php_laravel_phpmyadmin
+        restart: always
+        ports:
+            - "8080:80"
+        environment:
+            - PMA_HOST=db
+            - MA_ARBITRARY=1
+        depends_on:
+            - db
+        networks:
+            - php_laravel_network
+
+    redis:
+        image: redis:6.2
+        container_name: php_laravel_redis
+        volumes:
+          - ./.docker/redis/data:/data
+        networks:
+            - php_laravel_network
+
+networks:
+    php_laravel_network:
+        driver: bridge
